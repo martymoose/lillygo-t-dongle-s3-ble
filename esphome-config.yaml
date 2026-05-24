@@ -33,67 +33,81 @@ time:
   - platform: homeassistant
     id: homeassistant_time
 
-# I2C Bus for OLED Display
-i2c:
-  sda: GPIO17
-  scl: GPIO18
-  scan: true
-  id: bus_a
+# SPI Bus for ST7789 Display
+spi:
+  clk_pin: GPIO12
+  mosi_pin: GPIO11
 
-# OLED Display (128x64)
+# ST7789 LCD Display (240x280)
 display:
-  - platform: ssd1306_i2c
-    model: "SSD1306 128x64"
-    reset_pin: GPIO21
-    address: 0x3C
-    id: oled_display
+  - platform: st7789v
+    id: lcd_display
+    cs_pin: GPIO10
+    dc_pin: GPIO13
+    reset_pin: GPIO9
+    backlight_pin: GPIO14
+    rotation: 0
+    width: 240
+    height: 280
     lambda: |-
       auto time_str = id(homeassistant_time).now().strftime("%H:%M:%S");
-      auto date_str = id(homeassistant_time).now().strftime("%m/%d");
+      auto date_str = id(homeassistant_time).now().strftime("%m/%d/%Y");
       
-      it.fill(COLOR_OFF);
+      // Clear screen
+      it.fill(Color(0, 0, 0));
       
       // Title
-      it.printf(64, 0, id(font_large), COLOR_ON, TextAlign::TOP_CENTER, "BLE Proxy");
+      it.printf(120, 10, id(font_large), Color(255, 255, 255), TextAlign::TOP_CENTER, "BLE Proxy");
       
       // WiFi Status
-      if (id(wifi_info_text).state.length() > 0) {
-        it.printf(0, 16, id(font_small), COLOR_ON, TextAlign::TOP_LEFT, "WiFi: %s", id(wifi_info_text).state.c_str());
-      }
+      it.printf(10, 40, id(font_medium), Color(100, 200, 100), TextAlign::TOP_LEFT, "WiFi: %s", id(wifi_info_text).state.c_str());
       
-      // Time
-      it.printf(128, 16, id(font_small), COLOR_ON, TextAlign::TOP_RIGHT, "%s", time_str.c_str());
+      // Date and Time
+      it.printf(230, 40, id(font_small), Color(150, 150, 255), TextAlign::TOP_RIGHT, "%s", date_str.c_str());
+      it.printf(230, 55, id(font_medium), Color(255, 255, 100), TextAlign::TOP_RIGHT, "%s", time_str.c_str());
+      
+      // Separator line
+      it.line(10, 75, 230, 75, Color(100, 100, 100));
       
       // BLE Device Count
-      it.printf(0, 28, id(font_medium), COLOR_ON, TextAlign::TOP_LEFT, "Devices: %s", id(ble_device_count).state.c_str());
+      it.printf(10, 85, id(font_large), Color(255, 100, 100), TextAlign::TOP_LEFT, "Devices: %s", id(ble_device_count).state.c_str());
       
-      // Connected Devices (scroll through)
-      int line_height = 10;
-      int start_y = 40;
+      // Connected Devices
+      int line_height = 35;
+      int start_y = 125;
       
-      // Display first 2 device names
+      // Device 1
       if (id(ble_device_1).state.length() > 0) {
-        it.printf(0, start_y, id(font_small), COLOR_ON, TextAlign::TOP_LEFT, "1: %s", id(ble_device_1).state.c_str());
+        it.filled_rectangle(5, start_y - 5, 230, 30, Color(30, 30, 50));
+        it.printf(15, start_y, id(font_medium), Color(150, 200, 255), TextAlign::TOP_LEFT, "1: %s", id(ble_device_1).state.c_str());
       }
       
+      // Device 2
       if (id(ble_device_2).state.length() > 0) {
-        it.printf(0, start_y + line_height, id(font_small), COLOR_ON, TextAlign::TOP_LEFT, "2: %s", id(ble_device_2).state.c_str());
+        it.filled_rectangle(5, start_y + line_height - 5, 230, 30, Color(30, 30, 50));
+        it.printf(15, start_y + line_height, id(font_medium), Color(150, 200, 255), TextAlign::TOP_LEFT, "2: %s", id(ble_device_2).state.c_str());
       }
       
-      // Signal strength
-      it.printf(0, 62, id(font_small), COLOR_ON, TextAlign::BOTTOM_LEFT, "Signal: %s dBm", id(ble_signal_strength).state.c_str());
+      // Device 3
+      if (id(ble_device_3).state.length() > 0) {
+        it.filled_rectangle(5, start_y + (line_height * 2) - 5, 230, 30, Color(30, 30, 50));
+        it.printf(15, start_y + (line_height * 2), id(font_medium), Color(150, 200, 255), TextAlign::TOP_LEFT, "3: %s", id(ble_device_3).state.c_str());
+      }
+      
+      // Signal strength at bottom
+      it.printf(10, 270, id(font_small), Color(200, 150, 100), TextAlign::BOTTOM_LEFT, "Signal: %s dBm", id(ble_signal_strength).state.c_str());
 
 # Fonts
 font:
   - file: "gfonts://Roboto"
     id: font_small
-    size: 10
+    size: 12
   - file: "gfonts://Roboto"
     id: font_medium
-    size: 14
+    size: 16
   - file: "gfonts://Roboto"
     id: font_large
-    size: 18
+    size: 22
 
 # BLE Scanner
 esp32_ble_tracker:
