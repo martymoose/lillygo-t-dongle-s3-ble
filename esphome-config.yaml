@@ -1,0 +1,179 @@
+esphome:
+  name: lillygo-t-dongle-s3-ble
+  friendly_name: "LilyGo T-Dongle S3 BLE Proxy"
+  platform: esp32
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+
+# WiFi Configuration
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Enable fallback hotspot
+  ap:
+    ssid: "LilyGo-T-Dongle-S3"
+    password: "12345678"
+
+# Over-the-Air Updates
+ota:
+  password: !secret ota_password
+
+# Logging
+logger:
+  level: DEBUG
+
+# API for Home Assistant
+api:
+  encryption:
+    key: !secret api_key
+
+# Sync time with Home Assistant
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+# I2C Bus for OLED Display
+i2c:
+  sda: GPIO17
+  scl: GPIO18
+  scan: true
+  id: bus_a
+
+# OLED Display (128x64)
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    reset_pin: GPIO21
+    address: 0x3C
+    id: oled_display
+    lambda: |-
+      auto time_str = id(homeassistant_time).now().strftime("%H:%M:%S");
+      auto date_str = id(homeassistant_time).now().strftime("%m/%d");
+      
+      it.fill(COLOR_OFF);
+      
+      // Title
+      it.printf(64, 0, id(font_large), COLOR_ON, TextAlign::TOP_CENTER, "BLE Proxy");
+      
+      // WiFi Status
+      if (id(wifi_info_text).state.length() > 0) {
+        it.printf(0, 16, id(font_small), COLOR_ON, TextAlign::TOP_LEFT, "WiFi: %s", id(wifi_info_text).state.c_str());
+      }
+      
+      // Time
+      it.printf(128, 16, id(font_small), COLOR_ON, TextAlign::TOP_RIGHT, "%s", time_str.c_str());
+      
+      // BLE Device Count
+      it.printf(0, 28, id(font_medium), COLOR_ON, TextAlign::TOP_LEFT, "Devices: %s", id(ble_device_count).state.c_str());
+      
+      // Connected Devices (scroll through)
+      int line_height = 10;
+      int start_y = 40;
+      
+      // Display first 2 device names
+      if (id(ble_device_1).state.length() > 0) {
+        it.printf(0, start_y, id(font_small), COLOR_ON, TextAlign::TOP_LEFT, "1: %s", id(ble_device_1).state.c_str());
+      }
+      
+      if (id(ble_device_2).state.length() > 0) {
+        it.printf(0, start_y + line_height, id(font_small), COLOR_ON, TextAlign::TOP_LEFT, "2: %s", id(ble_device_2).state.c_str());
+      }
+      
+      // Signal strength
+      it.printf(0, 62, id(font_small), COLOR_ON, TextAlign::BOTTOM_LEFT, "Signal: %s dBm", id(ble_signal_strength).state.c_str());
+
+# Fonts
+font:
+  - file: "gfonts://Roboto"
+    id: font_small
+    size: 10
+  - file: "gfonts://Roboto"
+    id: font_medium
+    size: 14
+  - file: "gfonts://Roboto"
+    id: font_large
+    size: 18
+
+# BLE Scanner
+esp32_ble_tracker:
+  scan_parameters:
+    interval: 1.1s
+    window: 1.1s
+    duration: 30s
+    active: true
+    continuous: true
+
+# Text Sensors for BLE Device Names
+text_sensor:
+  - platform: template
+    name: "WiFi Info"
+    id: wifi_info_text
+    update_interval: 5s
+    lambda: |-
+      if (wifi::global_wifi_component->is_connected()) {
+        return {"Connected"};
+      } else {
+        return {"Disconnected"};
+      }
+    icon: mdi:wifi
+
+  - platform: template
+    name: "BLE Device 1"
+    id: ble_device_1
+    icon: mdi:bluetooth
+    update_interval: never
+    
+  - platform: template
+    name: "BLE Device 2"
+    id: ble_device_2
+    icon: mdi:bluetooth
+    update_interval: never
+    
+  - platform: template
+    name: "BLE Device 3"
+    id: ble_device_3
+    icon: mdi:bluetooth
+    update_interval: never
+    
+  - platform: template
+    name: "BLE Device 4"
+    id: ble_device_4
+    icon: mdi:bluetooth
+    update_interval: never
+    
+  - platform: template
+    name: "BLE Device 5"
+    id: ble_device_5
+    icon: mdi:bluetooth
+    update_interval: never
+
+# Numeric Sensors for BLE Signal Strength
+sensor:
+  - platform: template
+    name: "BLE Device Count"
+    id: ble_device_count
+    unit_of_measurement: "devices"
+    icon: mdi:counter
+    update_interval: 10s
+    lambda: |-
+      return (float)bluetooth::global_ble_devices->size();
+    
+  - platform: template
+    name: "BLE Signal Strength"
+    id: ble_signal_strength
+    unit_of_measurement: "dBm"
+    icon: mdi:signal-variant
+    update_interval: 5s
+    lambda: |-
+      if (bluetooth::global_ble_devices->size() > 0) {
+        auto device = *bluetooth::global_ble_devices->begin();
+        return (float)device.rssi;
+      }
+      return 0.0;
+
+# Binary Sensors for Device Detection
+binary_sensor:
+  - platform: esp32_ble_tracker
+    name: "Generic BLE Device"
+    service_uuid: "0000180A-0000-1000-8000-00805F9B34FB"
